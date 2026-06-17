@@ -75,6 +75,7 @@ class BLE():
 
             if message == '!B516':
                 # Up start
+                print("forward")
                 L1.duty(1023)
                 L2.duty(0)
                 R1.duty(1023)
@@ -84,7 +85,7 @@ class BLE():
                 # Up end
                 L1.duty(0)
                 R1.duty(0)
-            
+
             elif message == '!B813':
                 # right start
                 R1.duty(1023)
