@@ -4,9 +4,11 @@
 #
 #############################################################################
 
-from machine import Pin, Timer, SoftI2C, PWM
+from machine import Pin, Timer, SoftI2C
 from time import sleep_ms
 import ubluetooth
+
+from machine import PWM
 import math
 
 # driver output A
@@ -40,7 +42,6 @@ class BLE():
         self.timer2.deinit()
 
     def convert(self,red, green, blue):
-        print('converting')
         # Normalize RGB to 0.0 - 1.0
         red, green, blue = red / 255.0, green / 255.0, blue / 255.0
 
@@ -71,49 +72,85 @@ class BLE():
             h += 360.0
 
         print(f"Hue:{h},Saturation:{s},Lightness:{l}")
-        coords = [h,s]
+        coords = [h,s,l]
         return coords
 
-    def drive(self, h, s):
-        print(f"Hue:{h},Saturation:{s}")
-
-        # Char's Logic: Saturation (s) controls "intensity" multiplier (0 to 1)
-        intensity = s
-
-        # Convert Hue (h) to cartesian coords, using radius of 1
-        angle_rad = math.radians(h)
-        x = math.sin(angle_rad)
-        y = math.cos(angle_rad)
-
-        # Proportion of x to y determines the "proportion" multiplier
-        # y is our forward/backward axis, x is our left/right axis????
-        left_proportion = y + x
-        right_proportion = y - x
-
-        # Normalize proportions so the maximum multiplier never exceeds 1.0
-        max_prop = max(abs(left_proportion), abs(right_proportion), 1.0)
-        left_proportion = left_proportion / max_prop
-        right_proportion = right_proportion / max_prop
-
-        # LEFT MOTOR
-        if left_proportion >= 0:
-            # Moving Forward
-            L1.duty(int(intensity * left_proportion * 1023))
-            L2.duty(0)
-        else:
-            # Moving Backward
+    def drive(self, h, s, l):
+        # lightness =0: stop condition. Turn it to black and it stops
+        if(l == 0):
             L1.duty(0)
-            L2.duty(int(intensity * abs(left_proportion) * 1023))
-
-        # RIGHT MOTOR
-        if right_proportion >= 0:
-            # Moving Forward
-            R1.duty(int(intensity * right_proportion * 1023))
-            R2.duty(0)
-        else:
-            # Moving Backward
+            L2.duty(0)
             R1.duty(0)
-            R2.duty(int(intensity * abs(right_proportion) * 1023))
+            R2.duty(0)
+            print("STOPPED")
+
+        # steady forward and turn
+        elif h<15 or h>345: #forward
+            L1.duty(1023)
+            L2.duty(0)
+            R1.duty(1023)
+            R2.duty(0)
+
+        elif h>75 and h<105: #left
+            L1.duty(1023)
+            L2.duty(0)
+            R1.duty(0)
+            R2.duty(1023)
+
+        elif h>165 and h<195: # backward
+            L1.duty(0)
+            L2.duty(1023)
+            R1.duty(0)
+            R2.duty(1023)
+
+        elif h>255 and h<285: #right
+            L1.duty(0)
+            L2.duty(1023)
+            R1.duty(1023)
+            R2.duty(0)
+
+        else:
+            # Char's Logic: Saturation (s) controls "intensity" multiplier (0 to 1)
+            intensity = s
+
+            # Convert Hue (h) to cartesian coords, using radius of 1
+            angle_rad = math.radians(h)
+            x = math.sin(angle_rad)
+            y = math.cos(angle_rad)
+
+            # Proportion of x to y determines the "proportion" multiplier
+            # y is our forward/backward axis, x is our left/right axis????
+            left_proportion = y + x
+            right_proportion = y - x
+
+            # Normalize proportions so the maximum multiplier never exceeds 1.0
+            max_prop = max(abs(left_proportion), abs(right_proportion), 1.0)
+            left_proportion = left_proportion / max_prop
+            right_proportion = right_proportion / max_prop
+
+            # LEFT MOTOR
+            if left_proportion >= 0:
+                # Moving Forward
+                L1.duty(int(intensity * left_proportion * 1023))
+                L2.duty(0)
+                print(f"L1: {int(intensity * left_proportion * 1023)}, L2: 0")
+            else:
+                # Moving Backward
+                L1.duty(0)
+                L2.duty(int(intensity * abs(left_proportion) * 1023))
+                print(f"L1: 0, L2: {int(intensity * abs(left_proportion) * 1023)}")
+
+            # RIGHT MOTOR
+            if right_proportion >= 0:
+                # Moving Forward
+                R1.duty(int(intensity * right_proportion * 1023))
+                R2.duty(0)
+                print(f"R1: {int(intensity * right_proportion * 1023)}, R2: 0")
+            else:
+                # Moving Backward
+                R1.duty(0)
+                R2.duty(int(intensity * abs(right_proportion) * 1023))
+                print(f"R1: 0, R2: {int(intensity * abs(right_proportion) * 1023)}")
 
 
     def disconnected(self):
@@ -166,7 +203,7 @@ class BLE():
 
                 coords = self.convert(red, green, blue)
 
-                self.drive(coords[0], coords[1])
+                self.drive(coords[0], coords[1], coords[2])
 
 
     def register(self):
